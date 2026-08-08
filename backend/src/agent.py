@@ -114,8 +114,7 @@ async def my_agent(ctx: JobContext):
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
         tts=murf.TTS(
     voice="Samar",
-    locale="hi-IN",
-    style="Conversational",
+    style="Conversation",
     tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
     text_pacing=True
 ),
@@ -167,8 +166,8 @@ async def my_agent(ctx: JobContext):
 
     # Speak first — greet the user proactively instead of waiting for them
     await session.generate_reply(
-        instructions="Greet the user warmly, introduce yourself as Suraksha Saathi, and briefly explain what you help with."
-    )
+    instructions="Greet the user warmly in Hindi, starting with 'नमस्ते' written in Devanagari script (not Roman letters). Introduce yourself as Suraksha Saathi, and briefly explain what you help with — all in Devanagari Hindi."
+)
 
 if __name__ == "__main__":
     cli.run_app(server)

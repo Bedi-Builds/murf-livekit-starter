@@ -9,6 +9,7 @@ import {
   type AgentControlBarControls,
 } from '@/components/agents-ui/agent-control-bar';
 import { Shimmer } from '@/components/ai-elements/shimmer';
+import { toast } from 'sonner';
 import { cn } from '@/lib/shadcn/utils';
 import { TileLayout } from './tile-view';
 
@@ -188,6 +189,18 @@ export function AgentSessionView_01({
     camera: supportsVideoInput,
     screenShare: supportsScreenShare,
   };
+  const handleDeviceError = ({ error }: { source: unknown; error: Error }) => {
+    if (error.name === 'NotAllowedError') {
+      toast.error('दीया जलाने के लिए आपकी आवाज़ चाहिए 🪔', {
+        description:
+          'Microphone access was blocked. Please allow it in your browser settings and try again.',
+      });
+    } else {
+      toast.error('Microphone error', {
+        description: error.message || 'Something went wrong accessing your microphone.',
+      });
+    }
+  };
 
   useEffect(() => {
     const lastMessage = messages.at(-1);
@@ -266,6 +279,7 @@ export function AgentSessionView_01({
             isConnected={session.isConnected}
             onDisconnect={session.end}
             onIsChatOpenChange={setChatOpen}
+            onDeviceError={handleDeviceError}
           />
         </div>
       </motion.div>

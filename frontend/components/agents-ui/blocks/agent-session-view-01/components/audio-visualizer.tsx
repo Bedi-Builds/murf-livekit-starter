@@ -4,6 +4,7 @@ import React from 'react';
 import { type MotionProps, motion } from 'motion/react';
 import { useVoiceAssistant } from '@livekit/components-react';
 import { AgentAudioVisualizerAura } from '@/components/agents-ui/agent-audio-visualizer-aura';
+import { AgentAudioVisualizerDiya } from '@/components/agents-ui/agent-audio-visualizer-diya';
 import { AgentAudioVisualizerBar } from '@/components/agents-ui/agent-audio-visualizer-bar';
 import { AgentAudioVisualizerGrid } from '@/components/agents-ui/agent-audio-visualizer-grid';
 import { AgentAudioVisualizerRadial } from '@/components/agents-ui/agent-audio-visualizer-radial';
@@ -11,6 +12,7 @@ import { AgentAudioVisualizerWave } from '@/components/agents-ui/agent-audio-vis
 import { cn } from '@/lib/shadcn/utils';
 
 const MotionAgentAudioVisualizerAura = motion.create(AgentAudioVisualizerAura);
+const MotionAgentAudioVisualizerDiya = motion.create(AgentAudioVisualizerDiya);
 const MotionAgentAudioVisualizerBar = motion.create(AgentAudioVisualizerBar);
 const MotionAgentAudioVisualizerGrid = motion.create(AgentAudioVisualizerGrid);
 const MotionAgentAudioVisualizerRadial = motion.create(AgentAudioVisualizerRadial);
@@ -18,7 +20,7 @@ const MotionAgentAudioVisualizerWave = motion.create(AgentAudioVisualizerWave);
 
 interface AudioVisualizerProps extends MotionProps {
   isChatOpen: boolean;
-  audioVisualizerType?: 'bar' | 'wave' | 'grid' | 'radial' | 'aura';
+  audioVisualizerType?: 'bar' | 'wave' | 'grid' | 'radial' | 'aura' | 'diya';
   audioVisualizerColor?: `#${string}`;
   audioVisualizerColorShift?: number;
   audioVisualizerWaveLineWidth?: number;
@@ -47,6 +49,16 @@ export function AudioVisualizer({
   const { state, audioTrack } = useVoiceAssistant();
 
   switch (audioVisualizerType) {
+    case 'diya': {
+      return (
+        <MotionAgentAudioVisualizerDiya
+          state={state}
+          color={audioVisualizerColor}
+          className={cn('size-[300px] md:size-[450px]', className)}
+          {...props}
+        />
+      );
+    }
     case 'aura': {
       return (
         <MotionAgentAudioVisualizerAura

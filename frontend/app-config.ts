@@ -14,7 +14,7 @@ export interface AppConfig {
   logoDark?: string;
   accentDark?: string;
 
-  audioVisualizerType?: 'bar' | 'wave' | 'grid' | 'radial' | 'aura';
+  audioVisualizerType?: 'bar' | 'wave' | 'grid' | 'radial' | 'aura' | 'diya';
   audioVisualizerColor?: `#${string}`;
   audioVisualizerColorDark?: `#${string}`;
   audioVisualizerColorShift?: number;
@@ -33,36 +33,26 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'Murf AI',
-  pageTitle: 'Voice Agent Starter',
-  pageDescription: 'A voice agent powered by Murf Falcon — the fastest TTS API',
+  companyName: 'Suraksha Saathi',
+  pageTitle: 'Suraksha Saathi — आपका सुरक्षा साथी',
+  pageDescription: 'Voice agent for detecting scams and financial fraud, built with Murf Falcon',
 
-  supportsChatInput: true,
-  supportsVideoInput: true,
-  supportsScreenShare: true,
+  supportsChatInput: false,
+  supportsVideoInput: false,
+  supportsScreenShare: false,
   isPreConnectBufferEnabled: true,
 
   logo: '/murf-logo.svg',
-  accent: '#6366F1',
+  accent: '#E8A33D',
   logoDark: '/murf-logo-dark.svg',
-  accentDark: '#818cf8',
-  startButtonText: 'Start talking',
+  accentDark: '#E8A33D',
+  startButtonText: 'Start Talking',
 
   // optional: audio visualization configuration
-  // audioVisualizerType: 'bar',
-  // audioVisualizerColor: '#002cf2',
-  // audioVisualizerColorDark: '#1fd5f9',
-  // audioVisualizerColorShift: 0.3,
-  // audioVisualizerBarCount: 5,
-  // audioVisualizerType: 'radial',
-  // audioVisualizerRadialBarCount: 24,
-  // audioVisualizerRadialRadius: 100,
-  // audioVisualizerType: 'grid',
-  // audioVisualizerGridRowCount: 25,
-  // audioVisualizerGridColumnCount: 25,
-  // audioVisualizerType: 'wave',
-  // audioVisualizerWaveLineWidth: 3,
-  // audioVisualizerType: 'aura',
+  audioVisualizerType: 'diya',
+  audioVisualizerColor: '#E8A33D',
+  audioVisualizerColorDark: '#E8A33D',
+  audioVisualizerColorShift: 0.3,
 
   // agent dispatch configuration
   agentName: process.env.AGENT_NAME ?? undefined,
