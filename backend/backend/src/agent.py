@@ -185,6 +185,8 @@ async def my_agent(ctx: JobContext):
         preemptive_generation=True,
     )
 
+    # Build the save tool with THIS call's real participant ID baked in —
+    # the LLM cannot see or override it.
     save_tool = make_save_caller_tool(user_id)
 
     await session.start(

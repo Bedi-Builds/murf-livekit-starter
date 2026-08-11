@@ -20,11 +20,11 @@ from livekit.agents import (
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-logger = logging.getLogger("agent")
+logger = logging.getLogger("telephony_agent")
 
 load_dotenv(".env.local")
 
-DB_PATH = Path(__file__).parent.parent / "caller_memory.db"
+DB_PATH = Path(__file__).parent.parent.parent / "caller_memory.db"
 
 
 def init_database():
@@ -49,11 +49,7 @@ init_database()
 
 
 def make_save_caller_tool(fixed_user_id: str):
-    """
-    Build a save_caller_info tool with the real participant ID already baked in
-    as a closure variable. The LLM never sees or controls user_id, so it can't
-    invent one — this is what was breaking memory before.
-    """
+    """Build a save_caller_info tool with the real participant ID baked in."""
 
     @function_tool
     async def save_caller_info(
@@ -94,40 +90,27 @@ OBJECTIVES:
 KNOWLEDGE: You know common Indian scam patterns — fake lottery wins, urgent loan offers,
 fake job/internship offers asking for upfront payment, OTP/bank detail phishing, fake
 delivery/e-commerce links, impersonation calls (posing as a relative, bank, or police), and
-investment/chit fund schemes promising guaranteed returns. You do not have real-time access
-to verify a specific phone number, company, or website — say so plainly when asked.
+investment/chit fund schemes promising guaranteed returns.
 
-LANGUAGE: Mirror the user's language and mixing style. If they speak Hindi, reply in Hindi
-using Devanagari script (हिन्दी), never Roman/English letters — this is essential for correct
-pronunciation. If they mix Hindi and English (Hinglish), write the Hindi words in Devanagari
-and keep English words in Roman script, matching natural code-mixed writing. If they speak in
-English, reply fully in English.
+LANGUAGE & SCRIPT:
+Always write every language in its own native script.
+Hindi → Devanagari (नमस्ते), never romanized (never "namaste").
+If they mix Hindi and English (Hinglish), write Hindi words in Devanagari and keep English words in Roman script.
 
 GUARDRAILS:
-- Never ask the user for their OTP, PIN, account number, or password, under any circumstance.
-- Never confirm or promise that a specific scheme, loan, or investment is legitimate — you can
-  only point out red flags or their absence.
-- Never diagnose a message as 100% safe — always frame it as "no obvious red flags, but verify
-  independently."
-- If the user asks something outside scam/fraud safety (e.g. medical advice, legal advice,
-  unrelated topics), politely decline and say: "That's outside what I can help with — I'm
-  focused on helping you stay safe from scams. Please consult the right professional for that."
-- If a user seems to be in the middle of an active scam (e.g. being pressured to send money
-  right now), prioritize urgency: tell them to stop, not send anything, and verify independently
-  before acting.
-
-STYLE: Keep sentences short, spoken, and simple — avoid lists, brackets, or anything that reads
-like a webpage. Speak like a calm, patient person, not a document.
+- Never ask for OTP, PIN, account number, or password.
+- Never confirm a scheme is 100% safe — only point out red flags.
+- If the user seems to be in an active scam, prioritize urgency: tell them to stop and verify independently.
+- Keep sentences short, spoken, and simple.
 
 MEMORY & PERSONALIZATION:
 Before you finish the call, ask: "Should I remember your name and what we discussed today so I can help you better next time?"
-- If they say yes, call save_caller_info with their name and the schemes/questions they asked about (just name, schemes_checked, eligibility_answers — nothing else needed).
-- If they say no, do NOT save anything.
-- Privacy first: never ask for or save account numbers, OTP, passwords, or sensitive bank details.
+- If yes, call save_caller_info with their name and what you discussed.
+- If no, do NOT save anything.
 """
 
 
-class Assistant(Agent):
+class TelephonyAgent(Agent):
     def __init__(self, tools: list, instructions: str | None = None) -> None:
         super().__init__(
             instructions=instructions or SYSTEM_PROMPT,
@@ -145,8 +128,8 @@ def prewarm(proc: JobProcess):
 server.setup_fnc = prewarm
 
 
-@server.rtc_session(agent_name="my-agent")
-async def my_agent(ctx: JobContext):
+@server.rtc_session(agent_name="telephony-agent")
+async def telephony_agent(ctx: JobContext):
     ctx.log_context_fields = {"room": ctx.room.name}
 
     await ctx.connect()
@@ -162,8 +145,7 @@ async def my_agent(ctx: JobContext):
         greeting_instructions = (
             f"This is a returning caller named {row['name']}. "
             f"Last time you discussed: {row['schemes_checked'] or 'no specific scheme noted'}. "
-            f"Greet them warmly by name in Devanagari Hindi and briefly reference "
-            f"what you last talked about."
+            f"Greet them warmly by name in Devanagari Hindi and briefly reference what you last talked about."
         )
     else:
         greeting_instructions = (
@@ -176,9 +158,6 @@ async def my_agent(ctx: JobContext):
         llm=google.LLM(model="gemini-3.5-flash-lite"),
         tts=murf.TTS(
             voice="Samar",
-            style="Conversation",
-            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-            text_pacing=True,
         ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
@@ -188,7 +167,7 @@ async def my_agent(ctx: JobContext):
     save_tool = make_save_caller_tool(user_id)
 
     await session.start(
-        agent=Assistant(tools=[save_tool]),
+        agent=TelephonyAgent(tools=[save_tool]),
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
