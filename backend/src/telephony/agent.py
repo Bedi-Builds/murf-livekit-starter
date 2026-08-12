@@ -1,5 +1,6 @@
 import logging
 import sqlite3
+import requests
 from datetime import datetime
 from pathlib import Path
 
@@ -25,6 +26,7 @@ logger = logging.getLogger("telephony_agent")
 load_dotenv(".env.local")
 
 DB_PATH = Path(__file__).parent.parent.parent / "caller_memory.db"
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1537029496706699284/P4B9bHhAEF8xqXXvjVDLBn-Bujg-D4NxShBxb5OKAbKFVlinxPwVXP9IjDdomkRbBiDh"
 
 
 def init_database():
@@ -46,6 +48,26 @@ def init_database():
 
 
 init_database()
+
+
+@function_tool
+async def alert_human_agent(
+    ctx: RunContext,
+    reason: str,
+) -> str:
+    """Alert a human fraud specialist via Discord when the user asks for a human, manager, or reports an urgent active loss/scam."""
+    try:
+        requests.post(
+            DISCORD_WEBHOOK_URL,
+            json={
+                "content": f"🚨 **URGENT: Human Escalation Needed!**\n**Reason:** {reason}"
+            },
+            timeout=5,
+        )
+        return "Human specialist has been alerted on Discord."
+    except Exception as e:
+        logger.error(f"Failed to post to Discord: {e}")
+        return "Failed to dispatch Discord alert, but continue assisting user."
 
 
 def make_save_caller_tool(fixed_user_id: str):
@@ -87,20 +109,19 @@ OBJECTIVES:
 2. Explain the reasoning in simple terms so the user understands the red flags themselves.
 3. Give a clear, safe next step every time — never leave the user unsure what to do.
 
-KNOWLEDGE: You know common Indian scam patterns — fake lottery wins, urgent loan offers,
-fake job/internship offers asking for upfront payment, OTP/bank detail phishing, fake
-delivery/e-commerce links, impersonation calls (posing as a relative, bank, or police), and
-investment/chit fund schemes promising guaranteed returns.
+HUMAN ESCALATION:
+- If the user explicitly asks to speak to a human, person, manager, or supervisor, OR if they are panicked and reporting money actively stolen / account hacked, call `alert_human_agent` immediately.
+- Tell them calmly that you have alerted a human specialist who is standing by.
 
 LANGUAGE & SCRIPT:
 Always write every language in its own native script.
-Hindi → Devanagari (नमस्ते), never romanized (never "namaste").
+- Hindi → Devanagari (नमस्ते), never romanized (never "namaste").
+- Same rule for all non-English languages.
 If they mix Hindi and English (Hinglish), write Hindi words in Devanagari and keep English words in Roman script.
 
 GUARDRAILS:
 - Never ask for OTP, PIN, account number, or password.
 - Never confirm a scheme is 100% safe — only point out red flags.
-- If the user seems to be in an active scam, prioritize urgency: tell them to stop and verify independently.
 - Keep sentences short, spoken, and simple.
 
 MEMORY & PERSONALIZATION:
@@ -157,7 +178,10 @@ async def telephony_agent(ctx: JobContext):
         stt=deepgram.STT(model="nova-3", language="multi"),
         llm=google.LLM(model="gemini-3.5-flash-lite"),
         tts=murf.TTS(
-            voice="Samar",
+            voice="Anisha",
+            style="Conversation",
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+            text_pacing=True,
         ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
@@ -167,7 +191,7 @@ async def telephony_agent(ctx: JobContext):
     save_tool = make_save_caller_tool(user_id)
 
     await session.start(
-        agent=TelephonyAgent(tools=[save_tool]),
+        agent=TelephonyAgent(tools=[save_tool, alert_human_agent]),
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(

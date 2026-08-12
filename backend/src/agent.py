@@ -1,5 +1,6 @@
 import logging
 import sqlite3
+import requests
 from datetime import datetime
 from pathlib import Path
 
@@ -25,6 +26,7 @@ logger = logging.getLogger("agent")
 load_dotenv(".env.local")
 
 DB_PATH = Path(__file__).parent.parent / "caller_memory.db"
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1537029496706699284/P4B9bHhAEF8xqXXvjVDLBn-Bujg-D4NxShBxb5OKAbKFVlinxPwVXP9IjDdomkRbBiDh"
 
 
 def init_database():
@@ -48,12 +50,28 @@ def init_database():
 init_database()
 
 
+@function_tool
+async def alert_human_agent(
+    ctx: RunContext,
+    reason: str,
+) -> str:
+    """Alert a human fraud specialist via Discord when the user asks for a human, manager, or reports an urgent active loss/scam."""
+    try:
+        requests.post(
+            DISCORD_WEBHOOK_URL,
+            json={
+                "content": f"🚨 **URGENT: Human Escalation Needed!**\n**Reason:** {reason}"
+            },
+            timeout=5,
+        )
+        return "Human specialist has been alerted on Discord."
+    except Exception as e:
+        logger.error(f"Failed to post to Discord: {e}")
+        return "Failed to dispatch Discord alert, but continue assisting user."
+
+
 def make_save_caller_tool(fixed_user_id: str):
-    """
-    Build a save_caller_info tool with the real participant ID already baked in
-    as a closure variable. The LLM never sees or controls user_id, so it can't
-    invent one — this is what was breaking memory before.
-    """
+    """Build a save_caller_info tool with the real participant ID already baked in."""
 
     @function_tool
     async def save_caller_info(
@@ -91,39 +109,25 @@ OBJECTIVES:
 2. Explain the reasoning in simple terms so the user understands the red flags themselves.
 3. Give a clear, safe next step every time — never leave the user unsure what to do.
 
-KNOWLEDGE: You know common Indian scam patterns — fake lottery wins, urgent loan offers,
-fake job/internship offers asking for upfront payment, OTP/bank detail phishing, fake
-delivery/e-commerce links, impersonation calls (posing as a relative, bank, or police), and
-investment/chit fund schemes promising guaranteed returns. You do not have real-time access
-to verify a specific phone number, company, or website — say so plainly when asked.
+HUMAN ESCALATION:
+- If the user explicitly asks to speak to a human, person, manager, or supervisor, OR if they report money actively stolen or account hacked, call `alert_human_agent` immediately.
+- Tell them calmly in Hindi that you have notified a human specialist.
 
-LANGUAGE: Mirror the user's language and mixing style. If they speak Hindi, reply in Hindi
-using Devanagari script (हिन्दी), never Roman/English letters — this is essential for correct
-pronunciation. If they mix Hindi and English (Hinglish), write the Hindi words in Devanagari
-and keep English words in Roman script, matching natural code-mixed writing. If they speak in
-English, reply fully in English.
+LANGUAGE & SCRIPT:
+Always write every language in its own native script.
+- Hindi → Devanagari (नमस्ते), never romanized (never "namaste").
+- Same rule for all non-English languages.
+If they mix Hindi and English (Hinglish), write Hindi words in Devanagari and keep English words in Roman script.
 
 GUARDRAILS:
-- Never ask the user for their OTP, PIN, account number, or password, under any circumstance.
-- Never confirm or promise that a specific scheme, loan, or investment is legitimate — you can
-  only point out red flags or their absence.
-- Never diagnose a message as 100% safe — always frame it as "no obvious red flags, but verify
-  independently."
-- If the user asks something outside scam/fraud safety (e.g. medical advice, legal advice,
-  unrelated topics), politely decline and say: "That's outside what I can help with — I'm
-  focused on helping you stay safe from scams. Please consult the right professional for that."
-- If a user seems to be in the middle of an active scam (e.g. being pressured to send money
-  right now), prioritize urgency: tell them to stop, not send anything, and verify independently
-  before acting.
-
-STYLE: Keep sentences short, spoken, and simple — avoid lists, brackets, or anything that reads
-like a webpage. Speak like a calm, patient person, not a document.
+- Never ask for OTP, PIN, account number, or password.
+- Never confirm a scheme is 100% safe — only point out red flags.
+- Keep sentences short, spoken, and simple.
 
 MEMORY & PERSONALIZATION:
 Before you finish the call, ask: "Should I remember your name and what we discussed today so I can help you better next time?"
-- If they say yes, call save_caller_info with their name and the schemes/questions they asked about (just name, schemes_checked, eligibility_answers — nothing else needed).
-- If they say no, do NOT save anything.
-- Privacy first: never ask for or save account numbers, OTP, passwords, or sensitive bank details.
+- If yes, call save_caller_info with their name and what you discussed.
+- If no, do NOT save anything.
 """
 
 
@@ -162,8 +166,7 @@ async def my_agent(ctx: JobContext):
         greeting_instructions = (
             f"This is a returning caller named {row['name']}. "
             f"Last time you discussed: {row['schemes_checked'] or 'no specific scheme noted'}. "
-            f"Greet them warmly by name in Devanagari Hindi and briefly reference "
-            f"what you last talked about."
+            f"Greet them warmly by name in Devanagari Hindi and briefly reference what you last talked about."
         )
     else:
         greeting_instructions = (
@@ -175,7 +178,7 @@ async def my_agent(ctx: JobContext):
         stt=deepgram.STT(model="nova-3", language="multi"),
         llm=google.LLM(model="gemini-3.5-flash-lite"),
         tts=murf.TTS(
-            voice="Samar",
+            voice="Anisha",
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
             text_pacing=True,
@@ -188,7 +191,7 @@ async def my_agent(ctx: JobContext):
     save_tool = make_save_caller_tool(user_id)
 
     await session.start(
-        agent=Assistant(tools=[save_tool]),
+        agent=Assistant(tools=[save_tool, alert_human_agent]),
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
