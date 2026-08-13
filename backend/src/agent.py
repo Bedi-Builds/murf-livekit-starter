@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
+from src.analytics import log_call, init_analytics_db
 from livekit import rtc
 from livekit.agents import (
     Agent,
@@ -24,6 +25,7 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
+from src.analytics import log_call, init_analytics_db
 
 DB_PATH = Path(__file__).parent.parent / "caller_memory.db"
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1537029496706699284/P4B9bHhAEF8xqXXvjVDLBn-Bujg-D4NxShBxb5OKAbKFVlinxPwVXP9IjDdomkRbBiDh"
@@ -154,6 +156,8 @@ async def my_agent(ctx: JobContext):
     ctx.log_context_fields = {"room": ctx.room.name}
 
     await ctx.connect()
+    call_start_time = datetime.now().isoformat()
+    call_id = ctx.room.name  # Use room name as unique call ID
     participant = await ctx.wait_for_participant()
     user_id = participant.identity
 
@@ -205,6 +209,9 @@ async def my_agent(ctx: JobContext):
     )
 
     await session.generate_reply(instructions=greeting_instructions)
+    call_end_time = datetime.now().isoformat()
+    duration = (datetime.fromisoformat(call_end_time) - datetime.fromisoformat(call_start_time)).total_seconds()
+    log_call(call_id, participant_name or "unknown", call_start_time, call_end_time, int(duration), "completed")
 
 
 if __name__ == "__main__":
