@@ -1,5 +1,4 @@
-cd /c/Users/japch/murf-livekit-starter/backend
-cat > src/analytics.py << 'EOF'
+
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -77,4 +76,3 @@ def get_analytics():
 
 # Initialize on import
 init_analytics_db()
-EOF
